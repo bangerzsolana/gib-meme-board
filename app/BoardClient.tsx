@@ -127,12 +127,6 @@ function Column({ category, items, onDelete }: { category: string; items: Item[]
         >
           {col.label}
         </h2>
-        <span
-          className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: col.neon, color: "#08080f" }}
-        >
-          {items.length}
-        </span>
       </div>
 
       {/* Cards */}
