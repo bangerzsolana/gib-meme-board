@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 interface Item {
   id: number;
@@ -21,7 +22,22 @@ const COLUMNS: Record<string, { label: string; neon: string; glow: string }> = {
   bangerz:     { label: "Bangerz",      neon: "#ff69b4", glow: "rgba(255,105,180,0.15)" },
 };
 
-const COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures", "bangerz"];
+const DEFAULT_COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures", "bangerz"];
+const LS_KEY = "gib-meme-board-column-order";
+
+function loadColumnOrder(): string[] {
+  if (typeof window === "undefined") return DEFAULT_COLUMN_ORDER;
+  try {
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved) as string[];
+      // ensure any newly added columns not in saved order are appended
+      const merged = [...parsed, ...DEFAULT_COLUMN_ORDER.filter(c => !parsed.includes(c))];
+      return merged;
+    }
+  } catch {}
+  return DEFAULT_COLUMN_ORDER;
+}
 
 function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
@@ -156,6 +172,21 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState(false);
+  const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_COLUMN_ORDER);
+
+  // load persisted order after mount (avoids SSR mismatch)
+  useEffect(() => {
+    setColumnOrder(loadColumnOrder());
+  }, []);
+
+  function handleDragEnd(result: DropResult) {
+    if (!result.destination || result.destination.index === result.source.index) return;
+    const next = Array.from(columnOrder);
+    const [moved] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, moved);
+    setColumnOrder(next);
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+  }
 
   const fetchItems = useCallback(async () => {
     try {
@@ -190,7 +221,7 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
     }
   }
 
-  const grouped = COLUMN_ORDER.reduce((acc, cat) => {
+  const grouped = columnOrder.reduce((acc, cat) => {
     acc[cat] = items.filter((i) => i.category === cat);
     return acc;
   }, {} as Record<string, Item[]>);
@@ -229,7 +260,7 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
         <div className="flex items-center gap-4">
           {/* Stats pills */}
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {COLUMN_ORDER.map((cat) => {
+            {columnOrder.map((cat) => {
               const col = COLUMNS[cat];
               return (
                 <span
@@ -262,15 +293,38 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
       </header>
 
       {/* Board — fills remaining height, scrolls horizontally, scrollbar stays at bottom */}
-      <div
-        style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "24px 24px 0 24px" }}
-      >
-        <div style={{ display: "flex", gap: "20px", height: "100%", paddingBottom: "24px" }}>
-          {COLUMN_ORDER.map((cat) => (
-            <Column key={cat} category={cat} items={grouped[cat]} onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }} />
-          ))}
-        </div>
-      </div>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="board" direction="horizontal">
+          {(provided) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "24px 24px 0 24px" }}
+            >
+              <div style={{ display: "flex", gap: "20px", height: "100%", paddingBottom: "24px" }}>
+                {columnOrder.map((cat, index) => (
+                  <Draggable key={cat} draggableId={cat} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        style={{
+                          ...provided.draggableProps.style,
+                          opacity: snapshot.isDragging ? 0.85 : 1,
+                        }}
+                      >
+                        <Column category={cat} items={grouped[cat]} onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }} />
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
 
       {/* Footer */}
       <div className="px-6 py-2 flex-shrink-0 text-right">
