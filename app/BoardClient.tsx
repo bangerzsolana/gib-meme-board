@@ -230,9 +230,6 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
               Backlog
             </span>
           </h1>
-          <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: "#333355" }}>
-            live · updates every 10s
-          </p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -258,12 +255,12 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
             onClick={fetchItems}
             className="text-xs font-semibold px-4 py-2 rounded-full transition-all"
             style={{
-              backgroundColor: "#bf5fff22",
-              border: "1px solid #bf5fff66",
-              color: "#bf5fff",
+              backgroundColor: "transparent",
+              border: "1px solid #333355",
+              color: "#555577",
             }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#bf5fff33")}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#bf5fff22")}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "#555577")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "#333355")}
           >
             ↻ Refresh
           </button>
