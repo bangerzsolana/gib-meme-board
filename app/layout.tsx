@@ -13,9 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <meta httpEquiv="refresh" content="1800" />
-      </head>
+
       <body className="antialiased">
         {children}
       </body>
