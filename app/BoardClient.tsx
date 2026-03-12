@@ -8,6 +8,7 @@ interface Item {
   category: string;
   description: string;
   image_file_id: string | null;
+  image_url: string | null;
   added_by: string | null;
   status: string;
   created_at: string;
@@ -70,6 +71,13 @@ function ItemCard({ item, neon, dimmed, onDelete, onToggleDim }: {
       >
         ✕
       </button>
+      {item.image_url && (
+        <img
+          src={item.image_url}
+          alt=""
+          style={{ width: "100%", borderRadius: "6px", marginBottom: "10px", display: "block" }}
+        />
+      )}
       <p className="text-gray-100 text-sm font-medium leading-snug mb-3 pr-4">
         {item.description}
       </p>

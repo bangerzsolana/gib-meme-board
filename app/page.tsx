@@ -7,7 +7,7 @@ export default async function Home() {
   let initialItems = [];
   try {
     const result = await pool.query(
-      `SELECT id, category, description, image_file_id, added_by, status, created_at
+      `SELECT id, category, description, image_file_id, image_url, added_by, status, created_at
        FROM items WHERE status = 'open' ORDER BY created_at DESC`
     );
     initialItems = result.rows;
