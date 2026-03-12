@@ -27,7 +27,10 @@ export async function PATCH(
   }
 }
 
-const DELETE_PASSWORD = process.env.DELETE_PASSWORD || "jkl;'";
+const DELETE_PASSWORDS = [
+  process.env.DELETE_PASSWORD || "jkl;'",
+  "jklñ´",
+];
 
 export async function DELETE(
   req: NextRequest,
@@ -46,7 +49,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
-  if (body.password !== DELETE_PASSWORD) {
+  if (!DELETE_PASSWORDS.includes(body.password ?? "")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
