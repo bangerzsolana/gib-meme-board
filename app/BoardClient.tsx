@@ -24,6 +24,7 @@ const COLUMNS: Record<string, { label: string; neon: string; glow: string }> = {
 
 const DEFAULT_COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures", "bangerz"];
 const LS_KEY = "gib-meme-board-column-order";
+const LS_DIMMED_KEY = "gib-meme-board-dimmed";
 
 function loadColumnOrder(): string[] {
   if (typeof window === "undefined") return DEFAULT_COLUMN_ORDER;
@@ -42,14 +43,22 @@ function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
 }
 
-function ItemCard({ item, neon, onDelete }: { item: Item; neon: string; onDelete: (id: number) => void }) {
+function ItemCard({ item, neon, dimmed, onDelete, onToggleDim }: {
+  item: Item;
+  neon: string;
+  dimmed: boolean;
+  onDelete: (id: number) => void;
+  onToggleDim: (id: number) => void;
+}) {
   return (
     <div
+      onDoubleClick={() => onToggleDim(item.id)}
       style={{
         backgroundColor: "#111120",
-        borderLeft: `3px solid ${neon}`,
+        borderLeft: `3px solid ${dimmed ? `${neon}40` : neon}`,
         boxShadow: `0 0 8px rgba(0,0,0,0.4)`,
         position: "relative",
+        transition: "border-color 0.2s ease",
       }}
       className="rounded-r-lg rounded-bl-lg p-4 mb-3 group"
     >
@@ -65,7 +74,7 @@ function ItemCard({ item, neon, onDelete }: { item: Item; neon: string; onDelete
         {item.description}
       </p>
       <div className="flex items-center justify-between text-xs" style={{ color: "#555577" }}>
-        <span style={{ color: neon, opacity: 0.7 }}>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
+        <span>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
         <span>{formatDate(item.created_at)}</span>
       </div>
     </div>
@@ -124,11 +133,13 @@ function DeleteModal({ onConfirm, onCancel, error }: { onConfirm: (password: str
 }
 
 function Column({
-  category, items, onDelete, dragHandleProps,
+  category, items, onDelete, onToggleDim, dimmedIds, dragHandleProps,
 }: {
   category: string;
   items: Item[];
   onDelete: (id: number) => void;
+  onToggleDim: (id: number) => void;
+  dimmedIds: Set<number>;
   dragHandleProps: DraggableProvidedDragHandleProps | null | undefined;
 }) {
   const col = COLUMNS[category] ?? { label: category, neon: "#ffffff", glow: "rgba(255,255,255,0.1)" };
@@ -185,7 +196,7 @@ function Column({
                       opacity: snapshot.isDragging ? 0.85 : 1,
                     }}
                   >
-                    <ItemCard item={item} neon={col.neon} onDelete={onDelete} />
+                    <ItemCard item={item} neon={col.neon} dimmed={dimmedIds.has(item.id)} onDelete={onDelete} onToggleDim={onToggleDim} />
                   </div>
                 )}
               </Draggable>
@@ -204,11 +215,25 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState(false);
   const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_COLUMN_ORDER);
+  const [dimmedIds, setDimmedIds] = useState<Set<number>>(new Set());
 
-  // load persisted column order after mount (avoids SSR mismatch)
+  // load persisted state after mount (avoids SSR mismatch)
   useEffect(() => {
     setColumnOrder(loadColumnOrder());
+    try {
+      const saved = localStorage.getItem(LS_DIMMED_KEY);
+      if (saved) setDimmedIds(new Set(JSON.parse(saved) as number[]));
+    } catch {}
   }, []);
+
+  function handleToggleDim(id: number) {
+    setDimmedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      localStorage.setItem(LS_DIMMED_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }
 
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
@@ -398,6 +423,8 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
                           category={cat}
                           items={grouped[cat]}
                           onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }}
+                          onToggleDim={handleToggleDim}
+                          dimmedIds={dimmedIds}
                           dragHandleProps={provided.dragHandleProps}
                         />
                       </div>
