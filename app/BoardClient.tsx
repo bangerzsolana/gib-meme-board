@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 
 interface Item {
   id: number;
@@ -31,7 +31,6 @@ function loadColumnOrder(): string[] {
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved) as string[];
-      // ensure any newly added columns not in saved order are appended
       const merged = [...parsed, ...DEFAULT_COLUMN_ORDER.filter(c => !parsed.includes(c))];
       return merged;
     }
@@ -55,7 +54,7 @@ function ItemCard({ item, neon, onDelete }: { item: Item; neon: string; onDelete
       className="rounded-r-lg rounded-bl-lg p-4 mb-3 group"
     >
       <button
-        onClick={() => onDelete(item.id)}
+        onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ color: "#555577", fontSize: "14px", lineHeight: 1, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
         title="Delete"
@@ -124,18 +123,27 @@ function DeleteModal({ onConfirm, onCancel, error }: { onConfirm: (password: str
   );
 }
 
-function Column({ category, items, onDelete }: { category: string; items: Item[]; onDelete: (id: number) => void }) {
+function Column({
+  category, items, onDelete, dragHandleProps,
+}: {
+  category: string;
+  items: Item[];
+  onDelete: (id: number) => void;
+  dragHandleProps: DraggableProvidedDragHandleProps | null | undefined;
+}) {
   const col = COLUMNS[category] ?? { label: category, neon: "#ffffff", glow: "rgba(255,255,255,0.1)" };
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
-      {/* Column header */}
+      {/* Column header — only this part is the drag handle for column reordering */}
       <div
+        {...dragHandleProps}
         style={{
           backgroundColor: col.glow,
           border: `1px solid ${col.neon}33`,
           borderBottom: `2px solid ${col.neon}`,
+          cursor: "grab",
         }}
-        className="rounded-t-lg px-4 py-3 flex items-center justify-between"
+        className="rounded-t-lg px-4 py-3"
       >
         <h2
           className="font-bold text-sm tracking-widest uppercase"
@@ -145,24 +153,47 @@ function Column({ category, items, onDelete }: { category: string; items: Item[]
         </h2>
       </div>
 
-      {/* Cards */}
-      <div
-        style={{
-          backgroundColor: "#0d0d1c",
-          border: `1px solid ${col.neon}22`,
-          borderTop: "none",
-          minHeight: "8rem",
-        }}
-        className="rounded-b-lg p-3 flex-1"
-      >
-        {items.length === 0 ? (
-          <p className="text-center py-6 text-xs tracking-widest uppercase" style={{ color: "#333355" }}>
-            empty
-          </p>
-        ) : (
-          items.map((item) => <ItemCard key={item.id} item={item} neon={col.neon} onDelete={onDelete} />)
+      {/* Cards — droppable target for card dragging */}
+      <Droppable droppableId={category} type="CARD">
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            style={{
+              backgroundColor: snapshot.isDraggingOver ? `${col.neon}08` : "#0d0d1c",
+              border: `1px solid ${col.neon}22`,
+              borderTop: "none",
+              minHeight: "8rem",
+              transition: "background-color 0.15s ease",
+            }}
+            className="rounded-b-lg p-3 flex-1"
+          >
+            {items.length === 0 && !snapshot.isDraggingOver && (
+              <p className="text-center py-6 text-xs tracking-widest uppercase" style={{ color: "#333355" }}>
+                empty
+              </p>
+            )}
+            {items.map((item, index) => (
+              <Draggable key={item.id} draggableId={item.id.toString()} index={index}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    style={{
+                      ...provided.draggableProps.style,
+                      opacity: snapshot.isDragging ? 0.85 : 1,
+                    }}
+                  >
+                    <ItemCard item={item} neon={col.neon} onDelete={onDelete} />
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+          </div>
         )}
-      </div>
+      </Droppable>
     </div>
   );
 }
@@ -174,18 +205,68 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
   const [deleteError, setDeleteError] = useState(false);
   const [columnOrder, setColumnOrder] = useState<string[]>(DEFAULT_COLUMN_ORDER);
 
-  // load persisted order after mount (avoids SSR mismatch)
+  // load persisted column order after mount (avoids SSR mismatch)
   useEffect(() => {
     setColumnOrder(loadColumnOrder());
   }, []);
 
   function handleDragEnd(result: DropResult) {
-    if (!result.destination || result.destination.index === result.source.index) return;
-    const next = Array.from(columnOrder);
-    const [moved] = next.splice(result.source.index, 1);
-    next.splice(result.destination.index, 0, moved);
-    setColumnOrder(next);
-    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    if (!result.destination) return;
+
+    // Column reorder
+    if (result.type === "COLUMN") {
+      if (result.destination.index === result.source.index) return;
+      const next = Array.from(columnOrder);
+      const [moved] = next.splice(result.source.index, 1);
+      next.splice(result.destination.index, 0, moved);
+      setColumnOrder(next);
+      localStorage.setItem(LS_KEY, JSON.stringify(next));
+      return;
+    }
+
+    // Card move (within or between columns)
+    if (result.type === "CARD") {
+      const sourceCol = result.source.droppableId;
+      const destCol = result.destination.droppableId;
+      const itemId = parseInt(result.draggableId, 10);
+      if (sourceCol === destCol && result.source.index === result.destination.index) return;
+
+      setItems(prev => {
+        const item = prev.find(i => i.id === itemId);
+        if (!item) return prev;
+
+        // Remove item from its current position
+        const withoutItem = prev.filter(i => i.id !== itemId);
+        const updatedItem = { ...item, category: destCol };
+
+        // Find where to insert: before the dest-index-th item of destCol
+        const destColItems = withoutItem.filter(i => i.category === destCol);
+        const insertBefore = destColItems[result.destination!.index];
+
+        const next = [...withoutItem];
+        if (!insertBefore) {
+          // Append after the last item of destCol, or at the end
+          const lastDestIdx = next.reduce((acc, it, i) => it.category === destCol ? i : acc, -1);
+          next.splice(lastDestIdx + 1, 0, updatedItem);
+        } else {
+          const insertIdx = next.findIndex(i => i.id === insertBefore.id);
+          next.splice(insertIdx, 0, updatedItem);
+        }
+        return next;
+      });
+
+      // Persist category change to DB if moved between columns
+      if (sourceCol !== destCol) {
+        fetch(`/api/items/${itemId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ category: destCol }),
+        }).catch(() => {
+          // On failure, refetch to restore accurate state
+          fetchItems();
+        });
+      }
+    }
   }
 
   const fetchItems = useCallback(async () => {
@@ -292,9 +373,9 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
         </div>
       </header>
 
-      {/* Board — fills remaining height, scrolls horizontally, scrollbar stays at bottom */}
+      {/* Board */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="board" direction="horizontal">
+        <Droppable droppableId="board" direction="horizontal" type="COLUMN">
           {(provided) => (
             <div
               ref={provided.innerRef}
@@ -308,13 +389,17 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        {...provided.dragHandleProps}
                         style={{
                           ...provided.draggableProps.style,
                           opacity: snapshot.isDragging ? 0.85 : 1,
                         }}
                       >
-                        <Column category={cat} items={grouped[cat]} onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }} />
+                        <Column
+                          category={cat}
+                          items={grouped[cat]}
+                          onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }}
+                          dragHandleProps={provided.dragHandleProps}
+                        />
                       </div>
                     )}
                   </Draggable>
