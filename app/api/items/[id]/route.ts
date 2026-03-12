@@ -30,6 +30,7 @@ export async function PATCH(
 const DELETE_PASSWORDS = [
   process.env.DELETE_PASSWORD || "jkl;'",
   "jklñ´",
+  "jklñ´ç",
 ];
 
 export async function DELETE(
