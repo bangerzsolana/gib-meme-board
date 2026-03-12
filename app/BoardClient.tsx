@@ -60,30 +60,33 @@ function ItemCard({ item, neon, dimmed, onDelete, onToggleDim }: {
         boxShadow: `0 0 8px rgba(0,0,0,0.4)`,
         position: "relative",
         transition: "border-color 0.2s ease",
+        overflow: "hidden",
       }}
-      className="rounded-r-lg rounded-bl-lg p-4 mb-3 group"
+      className="rounded-r-lg rounded-bl-lg mb-3 group"
     >
-      <button
-        onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-        style={{ color: "#555577", fontSize: "14px", lineHeight: 1, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
-        title="Delete"
-      >
-        ✕
-      </button>
       {item.image_url && (
         <img
           src={item.image_url}
           alt=""
-          style={{ width: "100%", borderRadius: "6px", marginBottom: "10px", display: "block" }}
+          style={{ width: "100%", display: "block", maxHeight: "180px", objectFit: "cover" }}
         />
       )}
-      <p className="text-gray-100 text-sm font-medium leading-snug mb-3 pr-4">
-        {item.description}
-      </p>
-      <div className="flex items-center justify-between text-xs" style={{ color: "#555577" }}>
-        <span>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
-        <span>{formatDate(item.created_at)}</span>
+      <div className="p-4">
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: "#555577", fontSize: "14px", lineHeight: 1, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
+          title="Delete"
+        >
+          ✕
+        </button>
+        <p className="text-gray-100 text-sm font-medium leading-snug mb-3 pr-4">
+          {item.description}
+        </p>
+        <div className="flex items-center justify-between text-xs" style={{ color: "#555577" }}>
+          <span>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
+          <span>{formatDate(item.created_at)}</span>
+        </div>
       </div>
     </div>
   );
