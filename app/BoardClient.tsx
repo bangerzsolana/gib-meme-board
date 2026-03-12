@@ -18,25 +18,35 @@ const COLUMNS: Record<string, { label: string; neon: string; glow: string }> = {
   biccs:       { label: "Biccs",        neon: "#bf5fff", glow: "rgba(191,95,255,0.15)" },
   c4:          { label: "C4",           neon: "#00f5ff", glow: "rgba(0,245,255,0.15)" },
   newfeatures: { label: "New Features", neon: "#ffe600", glow: "rgba(255,230,0,0.15)" },
+  bangerz:     { label: "Bangerz",      neon: "#ff69b4", glow: "rgba(255,105,180,0.15)" },
 };
 
-const COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures"];
+const COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures", "bangerz"];
 
 function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
 }
 
-function ItemCard({ item, neon }: { item: Item; neon: string }) {
+function ItemCard({ item, neon, onDelete }: { item: Item; neon: string; onDelete: (id: number) => void }) {
   return (
     <div
       style={{
         backgroundColor: "#111120",
         borderLeft: `3px solid ${neon}`,
         boxShadow: `0 0 8px rgba(0,0,0,0.4)`,
+        position: "relative",
       }}
-      className="rounded-r-lg rounded-bl-lg p-4 mb-3"
+      className="rounded-r-lg rounded-bl-lg p-4 mb-3 group"
     >
-      <p className="text-gray-100 text-sm font-medium leading-snug mb-3">
+      <button
+        onClick={() => onDelete(item.id)}
+        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ color: "#555577", fontSize: "14px", lineHeight: 1, background: "none", border: "none", cursor: "pointer", padding: "2px 4px" }}
+        title="Delete"
+      >
+        ✕
+      </button>
+      <p className="text-gray-100 text-sm font-medium leading-snug mb-3 pr-4">
         {item.description}
       </p>
       <div className="flex items-center justify-between text-xs" style={{ color: "#555577" }}>
@@ -47,7 +57,58 @@ function ItemCard({ item, neon }: { item: Item; neon: string }) {
   );
 }
 
-function Column({ category, items }: { category: string; items: Item[] }) {
+function DeleteModal({ onConfirm, onCancel, error }: { onConfirm: (password: string) => void; onCancel: () => void; error: boolean }) {
+  const [password, setPassword] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!password) return;
+    onConfirm(password);
+  }
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div style={{ backgroundColor: "#0d0d1c", border: "1px solid #1a1a3a", borderRadius: "12px", padding: "28px", width: "320px" }}>
+        <h2 className="text-sm font-bold tracking-widest uppercase mb-4" style={{ color: "#ffffff" }}>Delete item?</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="password"
+            autoFocus
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter password"
+            style={{
+              width: "100%", backgroundColor: "#111120", border: "1px solid #1a1a3a",
+              borderRadius: "8px", padding: "10px 12px", color: "#ffffff", fontSize: "14px", outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          {error && <p style={{ color: "#ff2d78", fontSize: "12px", marginTop: "8px" }}>Incorrect password.</p>}
+          <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #1a1a3a", backgroundColor: "transparent", color: "#555577", cursor: "pointer", fontSize: "13px" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #ff2d7844", backgroundColor: "#ff2d7822", color: "#ff2d78", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}
+            >
+              Delete
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Column({ category, items, onDelete }: { category: string; items: Item[]; onDelete: (id: number) => void }) {
   const col = COLUMNS[category] ?? { label: category, neon: "#ffffff", glow: "rgba(255,255,255,0.1)" };
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
@@ -89,7 +150,7 @@ function Column({ category, items }: { category: string; items: Item[] }) {
             empty
           </p>
         ) : (
-          items.map((item) => <ItemCard key={item.id} item={item} neon={col.neon} />)
+          items.map((item) => <ItemCard key={item.id} item={item} neon={col.neon} onDelete={onDelete} />)
         )}
       </div>
     </div>
@@ -99,6 +160,8 @@ function Column({ category, items }: { category: string; items: Item[] }) {
 export default function BoardClient({ initialItems }: { initialItems: Item[] }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState(false);
 
   const fetchItems = useCallback(async () => {
     try {
@@ -117,6 +180,22 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
     return () => clearInterval(interval);
   }, [fetchItems]);
 
+  async function handleDeleteConfirm(password: string) {
+    if (deleteTarget === null) return;
+    const res = await fetch(`/api/items/${deleteTarget}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (res.ok) {
+      setItems((prev) => prev.filter((i) => i.id !== deleteTarget));
+      setDeleteTarget(null);
+      setDeleteError(false);
+    } else {
+      setDeleteError(true);
+    }
+  }
+
   const grouped = COLUMN_ORDER.reduce((acc, cat) => {
     acc[cat] = items.filter((i) => i.category === cat);
     return acc;
@@ -124,6 +203,13 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
 
   return (
     <div style={{ backgroundColor: "#08080f", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      {deleteTarget !== null && (
+        <DeleteModal
+          error={deleteError}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => { setDeleteTarget(null); setDeleteError(false); }}
+        />
+      )}
 
       {/* Header */}
       <header
@@ -190,7 +276,7 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
       >
         <div style={{ display: "flex", gap: "20px", height: "100%", paddingBottom: "24px" }}>
           {COLUMN_ORDER.map((cat) => (
-            <Column key={cat} category={cat} items={grouped[cat]} />
+            <Column key={cat} category={cat} items={grouped[cat]} onDelete={(id) => { setDeleteTarget(id); setDeleteError(false); }} />
           ))}
         </div>
       </div>
