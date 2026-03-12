@@ -19,7 +19,7 @@ const COLUMNS: Record<string, { label: string; neon: string; glow: string }> = {
   bug:         { label: "Bugs",         neon: "#ff2d78", glow: "rgba(255,45,120,0.15)" },
   biccs:       { label: "Biccs",        neon: "#bf5fff", glow: "rgba(191,95,255,0.15)" },
   c4:          { label: "C4",           neon: "#00f5ff", glow: "rgba(0,245,255,0.15)" },
-  newfeatures: { label: "New Features", neon: "#ffe600", glow: "rgba(255,230,0,0.15)" },
+  newfeatures: { label: "New", neon: "#ffe600", glow: "rgba(255,230,0,0.15)" },
   bangerz:     { label: "Bangerz",      neon: "#ff69b4", glow: "rgba(255,105,180,0.15)" },
 };
 
