@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 
 interface Item {
   id: number;
@@ -13,35 +12,35 @@ interface Item {
   created_at: string;
 }
 
-const COLUMNS: Record<string, { label: string; accentColor: string; countColor: string }> = {
-  backlog:     { label: "Backlog",      accentColor: "#4ade80", countColor: "#16a34a" },
-  bug:         { label: "Bugs",         accentColor: "#f87171", countColor: "#dc2626" },
-  biccs:       { label: "Biccs",        accentColor: "#c084fc", countColor: "#9333ea" },
-  c4:          { label: "C4",           accentColor: "#67e8f9", countColor: "#0891b2" },
-  newfeatures: { label: "New Features", accentColor: "#fbbf24", countColor: "#d97706" },
+const COLUMNS: Record<string, { label: string; neon: string; glow: string }> = {
+  backlog:     { label: "Backlog",      neon: "#39ff14", glow: "rgba(57,255,20,0.15)" },
+  bug:         { label: "Bugs",         neon: "#ff2d78", glow: "rgba(255,45,120,0.15)" },
+  biccs:       { label: "Biccs",        neon: "#bf5fff", glow: "rgba(191,95,255,0.15)" },
+  c4:          { label: "C4",           neon: "#00f5ff", glow: "rgba(0,245,255,0.15)" },
+  newfeatures: { label: "New Features", neon: "#ffe600", glow: "rgba(255,230,0,0.15)" },
 };
 
 const COLUMN_ORDER = ["backlog", "bug", "biccs", "c4", "newfeatures"];
 
 function formatDate(dateStr: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(dateStr));
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
 }
 
-function ItemCard({ item }: { item: Item }) {
+function ItemCard({ item, neon }: { item: Item; neon: string }) {
   return (
     <div
-      style={{ backgroundColor: "#16213e" }}
-      className="rounded-lg p-4 mb-3 border border-slate-700 shadow-md"
+      style={{
+        backgroundColor: "#111120",
+        borderLeft: `3px solid ${neon}`,
+        boxShadow: `0 0 8px rgba(0,0,0,0.4)`,
+      }}
+      className="rounded-r-lg rounded-bl-lg p-4 mb-3"
     >
-      <p className="text-slate-100 text-sm font-medium leading-snug mb-3">
+      <p className="text-gray-100 text-sm font-medium leading-snug mb-3">
         {item.description}
       </p>
-      <div className="flex items-center justify-between text-xs text-slate-400">
-        <span>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
+      <div className="flex items-center justify-between text-xs" style={{ color: "#555577" }}>
+        <span style={{ color: neon, opacity: 0.7 }}>{item.added_by ? `@${item.added_by}` : "unknown"}</span>
         <span>{formatDate(item.created_at)}</span>
       </div>
     </div>
@@ -49,31 +48,48 @@ function ItemCard({ item }: { item: Item }) {
 }
 
 function Column({ category, items }: { category: string; items: Item[] }) {
-  const col = COLUMNS[category] ?? { label: category, accentColor: "#94a3b8", countColor: "#64748b" };
+  const col = COLUMNS[category] ?? { label: category, neon: "#ffffff", glow: "rgba(255,255,255,0.1)" };
   return (
-    <div className="flex-shrink-0 w-72">
+    <div className="flex-shrink-0 w-72 flex flex-col">
+      {/* Column header */}
       <div
-        style={{ backgroundColor: "#0f3460" }}
-        className="rounded-t-lg px-4 py-3 flex items-center justify-between border border-slate-600"
+        style={{
+          backgroundColor: col.glow,
+          border: `1px solid ${col.neon}33`,
+          borderBottom: `2px solid ${col.neon}`,
+        }}
+        className="rounded-t-lg px-4 py-3 flex items-center justify-between"
       >
-        <h2 className="font-bold text-base tracking-wide uppercase" style={{ color: col.accentColor }}>
+        <h2
+          className="font-bold text-sm tracking-widest uppercase"
+          style={{ color: col.neon, textShadow: `0 0 10px ${col.neon}` }}
+        >
           {col.label}
         </h2>
         <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: col.countColor, color: "#fff" }}
+          className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: col.neon, color: "#08080f" }}
         >
           {items.length}
         </span>
       </div>
+
+      {/* Cards */}
       <div
-        style={{ backgroundColor: "#0f1b36" }}
-        className="rounded-b-lg p-3 min-h-32 border border-t-0 border-slate-600"
+        style={{
+          backgroundColor: "#0d0d1c",
+          border: `1px solid ${col.neon}22`,
+          borderTop: "none",
+          minHeight: "8rem",
+        }}
+        className="rounded-b-lg p-3 flex-1"
       >
         {items.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-6">Nothing here yet</p>
+          <p className="text-center py-6 text-xs tracking-widest uppercase" style={{ color: "#333355" }}>
+            empty
+          </p>
         ) : (
-          items.map((item) => <ItemCard key={item.id} item={item} />)
+          items.map((item) => <ItemCard key={item.id} item={item} neon={col.neon} />)
         )}
       </div>
     </div>
@@ -83,7 +99,6 @@ function Column({ category, items }: { category: string; items: Item[] }) {
 export default function BoardClient({ initialItems }: { initialItems: Item[] }) {
   const [items, setItems] = useState<Item[]>(initialItems);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-  const router = useRouter();
 
   const fetchItems = useCallback(async () => {
     try {
@@ -93,7 +108,7 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
       setItems(data);
       setLastUpdated(new Date());
     } catch {
-      // silently ignore — keep showing last known data
+      // silently keep last known data
     }
   }, []);
 
@@ -107,44 +122,85 @@ export default function BoardClient({ initialItems }: { initialItems: Item[] }) 
     return acc;
   }, {} as Record<string, Item[]>);
 
-  const totalByCategory = COLUMN_ORDER.reduce((acc, cat) => {
-    acc[cat] = grouped[cat].length;
-    return acc;
-  }, {} as Record<string, number>);
-
   return (
-    <>
-      {/* Stats bar */}
-      <div className="flex items-center gap-4">
-        {COLUMN_ORDER.map((cat) => {
-          const col = COLUMNS[cat];
-          return (
-            <span key={cat} className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: col.accentColor }}></span>
-              {col.label}: {totalByCategory[cat]}
-            </span>
-          );
-        })}
-        <button
-          onClick={fetchItems}
-          className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 rounded px-3 py-1 transition-colors"
-        >
-          ↻ Refresh
-        </button>
-      </div>
+    <div style={{ backgroundColor: "#08080f", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
 
-      {/* Board */}
-      <div className="px-6 py-8 overflow-x-auto">
-        <div className="flex gap-5" style={{ minWidth: "max-content" }}>
+      {/* Header */}
+      <header
+        style={{
+          backgroundColor: "#0d0d1c",
+          borderBottom: "1px solid #1a1a3a",
+          backgroundImage: "linear-gradient(135deg, #0d0d1c 0%, #110d1f 100%)",
+        }}
+        className="px-6 py-4 flex items-center justify-between flex-shrink-0"
+      >
+        <div>
+          <h1
+            className="text-2xl font-black tracking-tight"
+            style={{ color: "#ffffff", letterSpacing: "-0.5px" }}
+          >
+            Gib Meme{" "}
+            <span style={{ color: "#bf5fff", textShadow: "0 0 20px #bf5fff" }}>
+              Backlog
+            </span>
+          </h1>
+          <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: "#333355" }}>
+            live · updates every 10s
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* Stats pills */}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {COLUMN_ORDER.map((cat) => {
+              const col = COLUMNS[cat];
+              return (
+                <span
+                  key={cat}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: `${col.neon}18`, border: `1px solid ${col.neon}44`, color: col.neon }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: col.neon, boxShadow: `0 0 4px ${col.neon}` }} />
+                  {col.label}: {grouped[cat].length}
+                </span>
+              );
+            })}
+          </div>
+
+          {/* Refresh button */}
+          <button
+            onClick={fetchItems}
+            className="text-xs font-semibold px-4 py-2 rounded-full transition-all"
+            style={{
+              backgroundColor: "#bf5fff22",
+              border: "1px solid #bf5fff66",
+              color: "#bf5fff",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = "#bf5fff33")}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#bf5fff22")}
+          >
+            ↻ Refresh
+          </button>
+        </div>
+      </header>
+
+      {/* Board — fills remaining height, scrolls horizontally, scrollbar stays at bottom */}
+      <div
+        style={{ flex: 1, overflowX: "auto", overflowY: "hidden", padding: "24px 24px 0 24px" }}
+      >
+        <div style={{ display: "flex", gap: "20px", height: "100%", paddingBottom: "24px" }}>
           {COLUMN_ORDER.map((cat) => (
             <Column key={cat} category={cat} items={grouped[cat]} />
           ))}
         </div>
       </div>
 
-      <p className="px-6 text-xs text-slate-600">
-        Last updated: {lastUpdated.toLocaleTimeString()}
-      </p>
-    </>
+      {/* Footer */}
+      <div className="px-6 py-2 flex-shrink-0 text-right">
+        <span className="text-xs" style={{ color: "#222244" }}>
+          last updated {lastUpdated.toLocaleTimeString()}
+        </span>
+      </div>
+    </div>
   );
 }
