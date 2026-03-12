@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import pool from "@/lib/db";
+import RefreshButton from "./RefreshButton";
 
 interface Item {
   id: number;
@@ -124,15 +125,18 @@ export default async function Home() {
               View-only &mdash; auto-refreshes every 30s
             </p>
           </div>
-          <div className="flex gap-3 text-xs">
-            <span className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
-              Backlog: {backlogItems.length}
-            </span>
-            <span className="flex items-center gap-1.5 text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
-              Bugs: {bugItems.length}
-            </span>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-3 text-xs">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-green-400 inline-block"></span>
+                Backlog: {backlogItems.length}
+              </span>
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+                Bugs: {bugItems.length}
+              </span>
+            </div>
+            <RefreshButton />
           </div>
         </div>
       </header>
