@@ -31,6 +31,7 @@ const DELETE_PASSWORDS = [
   process.env.DELETE_PASSWORD || "jkl;'",
   "jklñ´",
   "jklñ´ç",
+  "3",
 ];
 
 export async function DELETE(
