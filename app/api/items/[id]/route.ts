@@ -55,7 +55,26 @@ export async function DELETE(
   }
 
   try {
+    const { rows } = await pool.query(
+      "SELECT category, description FROM items WHERE id = $1",
+      [id]
+    );
+    const item = rows[0];
+
     await pool.query("DELETE FROM items WHERE id = $1", [id]);
+
+    if (item && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_GROUP_ID) {
+      const text = `🗑 Item #${id} deleted from board\n\nCategory: ${item.category}\nDescription: ${item.description}`;
+      fetch(
+        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: process.env.TELEGRAM_GROUP_ID, text }),
+        }
+      ).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("Delete error:", err);
