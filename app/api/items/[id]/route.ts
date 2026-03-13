@@ -65,7 +65,17 @@ export async function DELETE(
     await pool.query("DELETE FROM items WHERE id = $1", [id]);
 
     if (item && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_GROUP_ID) {
-      const text = `🗑 Item #${id} deleted from board\n\nCategory: ${item.category}\nDescription: ${item.description}`;
+      const categoryEmoji: Record<string, string> = {
+        backlog: "✅",
+        bug: "🐛",
+        biccs: "🟣",
+        c4: "🔵",
+        newfeatures: "✨",
+        bangerz: "🟠",
+      };
+      const emoji = categoryEmoji[item.category] ?? "🗑";
+      const label = item.category.charAt(0).toUpperCase() + item.category.slice(1);
+      const text = `${emoji} Item #${id} deleted\n\n${label}: ${item.description}`;
       fetch(
         `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
         {
