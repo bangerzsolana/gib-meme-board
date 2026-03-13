@@ -73,7 +73,14 @@ export async function DELETE(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chat_id: process.env.TELEGRAM_GROUP_ID, text }),
         }
-      ).catch(() => {});
+      ).then(async (res) => {
+        if (!res.ok) {
+          const err = await res.text();
+          console.error("Telegram notify failed:", err);
+        }
+      }).catch((err) => console.error("Telegram notify error:", err));
+    } else {
+      console.warn("Telegram notify skipped — missing TELEGRAM_BOT_TOKEN or TELEGRAM_GROUP_ID");
     }
 
     return NextResponse.json({ ok: true });
